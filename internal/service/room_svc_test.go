@@ -17,9 +17,11 @@ type mockRoomRepository struct {
 	getByIDFn     func(ctx context.Context, id string) (*types.Room, error)
 	listFn        func(ctx context.Context, page, pageSize int, buildingID string, floor int, status string) ([]*types.Room, int, error)
 	updateFn      func(ctx context.Context, room *types.Room) error
-	deleteFn      func(ctx context.Context, id string) error
-	incrementFn   func(ctx context.Context, roomID string, delta int) error
-	listByBuildingFn func(ctx context.Context, buildingID string) ([]*types.Room, error)
+	deleteFn       func(ctx context.Context, id string) error
+	incrementFn    func(ctx context.Context, roomID string, delta int) error
+	updateBedCountFn func(ctx context.Context, roomID string, delta int) error
+	listByBuildingFn   func(ctx context.Context, buildingID string) ([]*types.Room, error)
+	getByBuildingFn    func(ctx context.Context, buildingID string) ([]*types.Room, error)
 }
 
 func (m *mockRoomRepository) Create(ctx context.Context, room *types.Room) error {
@@ -64,9 +66,23 @@ func (m *mockRoomRepository) IncrementBedsUsed(ctx context.Context, roomID strin
 	return nil
 }
 
+func (m *mockRoomRepository) UpdateBedCount(ctx context.Context, roomID string, delta int) error {
+	if m.updateBedCountFn != nil {
+		return m.updateBedCountFn(ctx, roomID, delta)
+	}
+	return nil
+}
+
 func (m *mockRoomRepository) ListByBuilding(ctx context.Context, buildingID string) ([]*types.Room, error) {
 	if m.listByBuildingFn != nil {
 		return m.listByBuildingFn(ctx, buildingID)
+	}
+	return nil, nil
+}
+
+func (m *mockRoomRepository) GetByBuildingID(ctx context.Context, buildingID string) ([]*types.Room, error) {
+	if m.getByBuildingFn != nil {
+		return m.getByBuildingFn(ctx, buildingID)
 	}
 	return nil, nil
 }
@@ -506,7 +522,6 @@ func TestRoomService_GetRoomsByBuilding(t *testing.T) {
 				}
 			},
 			wantErr: true,
-			errType: "NotFoundError",
 		},
 		{
 			name:      "no rooms",

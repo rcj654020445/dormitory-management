@@ -10,6 +10,7 @@
     "lint": "eslint . --fix",
     "lint:arch": "ts-node ../scripts/lint-deps.ts && ts-node ../scripts/lint-quality.ts",
     "test": "vitest",
+    "test:unit": "vitest run",
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {

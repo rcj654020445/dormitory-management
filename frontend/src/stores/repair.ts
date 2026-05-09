@@ -1,7 +1,7 @@
 // Layer 2: Pinia stores — depends on types (Layer 0) and api (Layer 1)
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Repair, RepairWithRoom, Pagination, RepairStatus } from '@/types'
+import type { RepairWithRoom, Pagination, RepairStatus } from '@/types'
 import type { CreateRepairDto, UpdateRepairDto, UpdateStatusDto, ListRepairsParams } from '@/api/repair'
 import { repairApi } from '@/api/repair'
 

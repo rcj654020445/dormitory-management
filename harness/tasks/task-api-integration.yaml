@@ -1,0 +1,198 @@
+# harness/tasks/task-api-integration.yaml
+# 前后端 API 集成任务模板
+# 触发条件：用户要求"对接 {entity} API"、"联调前后端"、"前后端集成"
+
+name: task-api-integration
+description: |
+  将已完成后端实现的实体 API 与 Vue3 前端进行集成：
+  1. 确认 API 契约（docs/API_CONTRACT.md）
+  2. 实现前端 API 客户端（api/{entity}.ts）
+  3. 创建 Pinia store 或 composable
+  4. 实现视图组件（views/）
+  5. 注册路由
+  6. 联调验证
+
+trigger:
+  - '对接.{1,20}API'
+  - '联调前后端'
+  - '前后端集成'
+  - '实现.{1,20}前端'
+  - '把.{1,20}接上前端'
+  - '前端调用.{1,20}API'
+
+inputs:
+  entity:
+    type: string
+    description: 实体名称（snake_case），如 student, building, room
+    required: true
+
+context:
+  - path: docs/API_CONTRACT.md
+    reason: 必须先查阅 API 契约，确认请求/响应格式后才能开始
+  - path: docs/LAYER_MAP.md
+    reason: 前端 views/ 禁止直接 import api/，必须经由 store
+  - path: frontend/src/api/student.ts
+    reason: 参考现有 API 客户端的代码风格
+  - path: frontend/src/stores/student.ts
+    reason: 参考现有 Pinia store 的代码风格
+
+steps:
+  - id: check-backend-ready
+    description: |
+      确认后端 API 已实现且可访问。
+
+      检查项：
+      1. internal/handler/{entity}_handler.go 存在
+      2. internal/router/ 中已注册 /{entity} 路由
+      3. 后端服务已启动（http://localhost:8080）
+      4. API 契约已在 docs/API_CONTRACT.md 中定义
+
+      验证命令：
+      curl http://localhost:8080/health
+      curl http://localhost:8080/api/v1/{plural}
+    verify: |
+      test -f internal/handler/{entity}_handler.go && \
+      curl -s http://localhost:8080/api/v1/{plural} | grep -q "data"
+    on_error:
+      message: "后端 API 未就绪。先运行 ./harness/scripts/start-be.sh 确认后端已启动，并查阅 docs/API_CONTRACT.md 确认契约已定义。"
+
+  - id: create-api-client
+    description: |
+      在 frontend/src/api/{entity}.ts 创建 API 客户端。
+
+      代码规范：
+      - 每个函数返回 Promise<T>
+      - 使用 axios 实例（已在 @/utils/request.ts 中封装）
+      - 函数命名：get{Entity}, list{Entity}s, create{Entity}, update{Entity}, delete{Entity}
+      - 响应直接返回 response.data
+
+      参考：frontend/src/api/student.ts
+    verify: |
+      test -f frontend/src/api/{entity}.ts && \
+      grep -q "list{Entity}s" frontend/src/api/{entity}.ts
+    output:
+      path: frontend/src/api/{entity}.ts
+    constraint:
+      layer: L1
+      # api/ 只能依赖 types/ 和 utils/，禁止依赖 stores/ 或 views/
+
+  - id: create-store
+    description: |
+      在 frontend/src/stores/{entity}.ts 创建 Pinia store。
+
+      必须包含：
+      - state: items[], loading, error
+      - getters: itemById
+      - actions: fetchAll(), fetchById(id), create(data), update(id, data), remove(id)
+
+      规则：
+      - Layer 2，可依赖 api/ 和 types/
+      - 禁止依赖 views/
+      - action 中处理 API 错误，转换为 user-friendly message
+    verify: |
+      test -f frontend/src/stores/{entity}.ts && \
+      grep -q "fetchAll" frontend/src/stores/{entity}.ts
+    output:
+      path: frontend/src/stores/{entity}.ts
+
+  - id: create-view-list
+    description: |
+      在 frontend/src/views/{Entity}List.vue 创建列表视图。
+
+      必须包含：
+      - 使用 <script setup>
+      - 导入并使用 use{Entity}Store（或 Pinia store）
+      - 表格展示数据（el-table / a-table）
+      - 分页组件
+      - 新建按钮 → 跳转至新建页面或打开弹窗
+      - 编辑/删除操作
+
+      规则：
+      - Layer 3，导入 store，不直接导入 api
+      - 不允许在 <script setup> 中直接调用 API
+      - 组件名 PascalCase，文件 .vue 扩展名
+    verify: |
+      test -f frontend/src/views/{Entity}List.vue && \
+      grep -q "<script setup>" frontend/src/views/{Entity}List.vue
+    output:
+      path: frontend/src/views/{Entity}List.vue
+
+  - id: create-view-form
+    description: |
+      在 frontend/src/views/{Entity}Form.vue 创建新建/编辑表单视图。
+
+      必须包含：
+      - <script setup>
+      - 表单字段（对应 Create/Update Request）
+      - 表单校验规则（参考 API_CONTRACT.md 必填字段）
+      - 提交逻辑：调用 store.create() 或 store.update()
+      - 编辑模式下 URL 参数传入 ID，加载现有数据
+
+      复用逻辑：如果已有通用表单组件，优先复用。
+    verify: |
+      test -f frontend/src/views/{Entity}Form.vue
+    output:
+      path: frontend/src/views/{Entity}Form.vue
+
+  - id: register-route
+    description: |
+      在 frontend/src/router/index.ts 注册路由。
+
+      路由规则：
+      - 列表页：/{plural}
+      - 新建页：/{plural}/new
+      - 编辑页：/{plural}/:id
+
+      注意：
+      - 如果 router/index.ts 有权限控制，需要配置对应权限
+      - 菜单配置也需要同步更新（如果存在菜单配置文件）
+    verify: |
+      grep -q "{plural}" frontend/src/router/index.ts
+    output:
+      path: frontend/src/router/index.ts
+
+  - id: integration-test
+    description: |
+      前后端联调验证。
+
+      验证步骤：
+      1. 确认后端运行：curl http://localhost:8080/health
+      2. 启动前端：./harness/scripts/start-fe.sh
+      3. 打开浏览器访问 http://localhost:5173/{plural}
+      4. 创建一条数据，确认出现在列表中
+      5. 编辑数据，确认修改成功
+      6. 删除数据，确认列表更新
+
+      必须全部通过才算完成。
+    verify: |
+      echo "Manual verification required: open http://localhost:5173/{plural} in browser"
+    constraint:
+      type: manual
+      # 联调验证必须人工确认，不能自动化
+
+constraints:
+  - api_client_is_singleton: true
+    # 每个实体只有一个 API 客户端文件，不允许按组件拆分数个文件
+  - no_direct_fetch_in_view: true
+    # views/ 中不允许直接调用 axios 或 fetch，必须经由 store
+  - layer_compliance: true
+    # 严格遵守 Layer Map：api(L1) → store(L2) → view(L3)
+  - api_contract_reference: true
+    # 所有字段名、类型必须与 docs/API_CONTRACT.md 完全一致
+  - error_handling: store-level
+    # 错误处理在 store action 中，不在 view 中
+
+output_schema:
+  files_created:
+    - frontend/src/api/{entity}.ts
+    - frontend/src/stores/{entity}.ts
+    - frontend/src/views/{Entity}List.vue
+    - frontend/src/views/{Entity}Form.vue
+  files_modified:
+    - frontend/src/router/index.ts
+    - (可能) frontend/src/views/layout/SideMenu.vue 或菜单配置
+  verification:
+    - 前端 dev server 启动无报错
+    - 页面能正常加载
+    - CRUD 操作全部成功
+    - 无浏览器控制台 Error（不含 Warning）

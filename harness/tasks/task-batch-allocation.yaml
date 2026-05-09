@@ -1,0 +1,120 @@
+# harness/tasks/task-batch-allocation.yaml
+# 批量分配场景任务
+# 触发条件：开学批量入住、批量分配、批量导入学生房间
+#
+# 业务背景：
+# 每学期开学时，宿舍管理员需要一次性为大量新生分配床位。
+# 批量分配需要处理：性别匹配、床位容量、楼栋约束、冲突检测。
+
+name: task-batch-allocation
+description: |
+  批量分配场景：为大量学生同时分配床位。
+  核心挑战：
+  1. 性别匹配（男/女楼栋）
+  2. 床位可用性（并发抢占）
+  3. 批量事务（全部成功或全部回滚）
+  4. 冲突报告（哪些学生分配失败及原因）
+
+trigger:
+  - '批量分配'
+  - '批量入住'
+  - '批量导入'
+  - '开学入住'
+  - 'batch allocation'
+  - 'bulk assign'
+  - '批量分配床位'
+
+inputs:
+  data_source:
+    type: string
+    description: 数据来源（excel/csv/api_body）
+    required: false
+    default: api_body
+
+context:
+  - path: docs/design-docs/ALLOCATION_FLOW.md
+    reason: 理解单次分配的业务规则（冲突检测、状态校验）
+  - path: docs/design-docs/BUILDING_MANAGEMENT.md
+    reason: 了解楼栋性别约束和房间状态
+  - path: docs/API_CONTRACT.md
+    reason: 批量分配 API 的请求/响应格式
+  - path: internal/service/allocation_svc.go
+    reason: 参考现有 allocation service 的事务处理方式
+
+steps:
+  - id: validate-batch-data
+    description: |
+      校验批量数据格式和业务规则。
+      对每条记录检查：
+      1. student_id 存在且状态为 checked_in
+      2. room_id 存在且 status = 'active'
+      3. bed_number 在有效范围（1 ~ room.beds_total）
+      4. 学生性别与楼栋性别匹配
+      5. 目标床位当前未被占用
+
+      批量校验可以先查后端全部数据，在内存中做过滤，
+      不需要每条都调 API（性能考虑）。
+
+    verify: |
+      # 返回结构化的校验结果（成功列表 + 失败列表）
+      # 示例：
+      # { "valid": [{student_id, room_id, bed_number}], "invalid": [{student_id, reason}] }
+
+  - id: reserve-beds
+    description: |
+      对 valid 列表中的每条记录，在数据库中锁定床位。
+      使用 SELECT FOR UPDATE NOWAIT 防止并发抢占：
+      UPDATE rooms SET beds_used = beds_used + 1, updated_at = NOW()
+      WHERE id = $room_id AND beds_used < beds_total AND status = 'active'
+
+      如果任何一条记录更新失败（beds_used 超限或被抢占），
+      整个批次必须回滚，不允许部分成功。
+    verify: |
+      数据库事务 ACID 保证
+
+  - id: create-allocations
+    description: |
+      在同一事务中插入所有 allocation 记录。
+      每条记录：
+      - status = 'active'
+      - check_in_at = NOW()
+      - bed_number = 申请值
+    verify: |
+      批量 INSERT，失败则 rollback
+
+  - id: update-student-status
+    description: |
+      更新所有成功分配学生的 room_id 和 status = 'checked_in'。
+      在同一事务中完成。
+    verify: |
+      学生状态变更后才能算分配成功
+
+  - id: generate-report
+    description: |
+      生成分配结果报告：
+      - 成功数 / 总数
+      - 每个失败学生的 student_id + 失败原因
+      - 每个成功学生的 student_id + room_id + bed_number
+    verify: |
+      报告格式 JSON，含 summary 统计
+
+api_contract:
+  POST /api/allocations/batch
+  Request:
+    allocations: Array<{
+      student_id: string
+      room_id: string
+      bed_number: number
+    }>
+  Response:
+    {
+      "success_count": number
+      "fail_count": number
+      "results": Array<{
+        student_id: string
+        status: "allocated" | "failed"
+        allocation_id?: string
+        bed_number?: number
+        error?: string
+      }>
+    }

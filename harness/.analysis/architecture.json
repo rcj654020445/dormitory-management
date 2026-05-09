@@ -1,0 +1,714 @@
+{
+  "project": "dormitory-management",
+  "tech_stack": {
+    "backend": "Go",
+    "frontend": "Vue3",
+    "database": "PostgreSQL"
+  },
+  "analysis_timestamp": "2026-05-09T04:27:00Z",
+  "go_backend": {
+    "entry_points": {
+      "cmd/server/main.go": {
+        "layer": 5,
+        "description": "Main HTTP server entry point",
+        "imports": [
+          "github.com/joho/godotenv",
+          "github.com/example/dormitory-management/internal/handler",
+          "github.com/example/dormitory-management/internal/middleware",
+          "github.com/example/dormitory-management/pkg/config",
+          "github.com/example/dormitory-management/pkg/database",
+          "github.com/example/dormitory-management/pkg/logger"
+        ]
+      },
+      "cmd/migrate/main.go": {
+        "layer": 5,
+        "description": "Database migration tool",
+        "imports": [
+          "github.com/joho/godotenv",
+          "github.com/example/dormitory-management/pkg/config",
+          "github.com/example/dormitory-management/pkg/database",
+          "github.com/example/dormitory-management/pkg/logger"
+        ]
+      },
+      "cmd/seed/main.go": {
+        "layer": 5,
+        "description": "Database seeding tool",
+        "imports": [
+          "github.com/google/uuid",
+          "github.com/joho/godotenv",
+          "github.com/example/dormitory-management/pkg/config",
+          "github.com/example/dormitory-management/pkg/database",
+          "github.com/example/dormitory-management/pkg/logger"
+        ]
+      }
+    },
+    "layer_hierarchy": {
+      "layer_5": {
+        "name": "Entry Points",
+        "packages": ["cmd/server", "cmd/migrate", "cmd/seed"],
+        "depends_on": ["layer_3", "layer_-1"],
+        "rule": "Application entry points - can import any internal package"
+      },
+      "layer_4": {
+        "name": "Not Used",
+        "packages": [],
+        "rule": "Reserved for future use"
+      },
+      "layer_3": {
+        "name": "HTTP Handlers + Middleware",
+        "packages": [
+          "internal/handler",
+          "internal/middleware",
+          "internal/request",
+          "internal/response"
+        ],
+        "depends_on": ["layer_2", "layer_0", "layer_-1"],
+        "rule": "HTTP request/response handling - depends on services (L2) and types (L0)"
+      },
+      "layer_2": {
+        "name": "Business Logic (Services)",
+        "packages": ["internal/service"],
+        "depends_on": ["layer_1", "layer_0"],
+        "rule": "Business logic orchestration - depends on repositories (L1) and types (L0)"
+      },
+      "layer_1": {
+        "name": "Data Access (Repositories)",
+        "packages": ["internal/repository"],
+        "depends_on": ["layer_0", "layer_-1"],
+        "rule": "Database access - depends on types (L0) and pkg/database (L-1)"
+      },
+      "layer_0": {
+        "name": "Core Types & Domain Models",
+        "packages": ["internal/types", "internal/model"],
+        "depends_on": [],
+        "rule": "No internal dependencies allowed - pure type definitions"
+      },
+      "layer_minus_1": {
+        "name": "Infrastructure",
+        "packages": ["pkg/config", "pkg/database", "pkg/logger"],
+        "depends_on": ["external"],
+        "rule": "Can be imported by any layer - no internal dependencies"
+      }
+    },
+    "packages": {
+      "internal/handler": {
+        "files": [
+          "router.go",
+          "student_handler.go",
+          "building_handler.go",
+          "room_handler.go",
+          "allocation_handler.go",
+          "violation_handler.go",
+          "repair_handler.go"
+        ],
+        "layer": 3,
+        "description": "HTTP request handlers - wire up services with HTTP layer",
+        "key_interfaces": {
+          "StudentHandler": {
+            "service_field": "svc service.StudentService",
+            "constructor": "NewStudentHandler(db *database.PostgresDB)"
+          },
+          "BuildingHandler": {
+            "service_field": "svc service.BuildingService",
+            "constructor": "NewBuildingHandler(db *database.PostgresDB)"
+          },
+          "RoomHandler": {
+            "service_field": "svc service.RoomService",
+            "constructor": "NewRoomHandler(db *database.PostgresDB)"
+          },
+          "AllocationHandler": {
+            "service_field": "svc service.AllocationService",
+            "constructor": "NewAllocationHandler(db *database.PostgresDB)"
+          },
+          "ViolationHandler": {
+            "service_field": "svc service.ViolationService",
+            "constructor": "NewViolationHandler(db *database.PostgresDB)"
+          },
+          "RepairHandler": {
+            "service_field": "svc service.RepairService",
+            "constructor": "NewRepairHandler(db *database.PostgresDB)"
+          }
+        }
+      },
+      "internal/service": {
+        "files": [
+          "student_svc.go",
+          "building_svc.go",
+          "room_svc.go",
+          "allocation_svc.go",
+          "violation_svc.go",
+          "repair_svc.go",
+          "room_svc_test.go",
+          "violation_svc_test.go"
+        ],
+        "layer": 2,
+        "description": "Business logic layer with transaction orchestration",
+        "key_interfaces": {
+          "StudentService": {
+            "methods": [
+              "CreateStudent",
+              "GetStudent",
+              "GetStudentByStudentID",
+              "ListStudents",
+              "UpdateStudent",
+              "DeleteStudent",
+              "AllocateRoom",
+              "VacateStudent"
+            ],
+            "dependencies": ["repository.StudentRepository", "repository.RoomRepository"]
+          },
+          "BuildingService": {
+            "methods": [
+              "CreateBuilding",
+              "GetBuilding",
+              "ListBuildings",
+              "UpdateBuilding",
+              "DeleteBuilding",
+              "GetBuildingsByGender",
+              "ListRooms"
+            ],
+            "dependencies": ["repository.BuildingRepository", "repository.RoomRepository"]
+          },
+          "RoomService": {
+            "methods": [
+              "CreateRoom",
+              "GetRoom",
+              "ListRooms",
+              "UpdateRoom",
+              "DeleteRoom",
+              "GetRoomsByBuilding"
+            ],
+            "dependencies": ["repository.RoomRepository", "repository.BuildingRepository"]
+          },
+          "AllocationService": {
+            "methods": [
+              "CreateAllocation",
+              "GetAllocation",
+              "ListAllocations",
+              "ListAllocationsByStudent",
+              "CancelAllocation"
+            ],
+            "dependencies": ["repository.AllocationRepository", "repository.StudentRepository", "repository.RoomRepository"]
+          },
+          "ViolationService": {
+            "methods": [
+              "CreateViolation",
+              "GetViolation",
+              "ListViolations",
+              "UpdateViolation",
+              "DeleteViolation",
+              "ResolveViolation"
+            ],
+            "dependencies": ["repository.ViolationRepository", "repository.StudentRepository"]
+          },
+          "RepairService": {
+            "methods": [
+              "CreateRepair",
+              "GetRepair",
+              "ListRepairs",
+              "UpdateRepairStatus",
+              "RateRepair",
+              "CancelRepair"
+            ],
+            "dependencies": ["repository.RepairRepository", "repository.RoomRepository", "repository.StudentRepository"]
+          }
+        }
+      },
+      "internal/repository": {
+        "files": [
+          "db.go",
+          "student_repo.go",
+          "building_repo.go",
+          "room_repo.go",
+          "allocation_repo.go",
+          "violation_repo.go",
+          "repair_repo.go"
+        ],
+        "layer": 1,
+        "description": "Data access layer - SQL queries with pgx",
+        "key_interfaces": {
+          "DB": {
+            "methods": ["Exec", "Query", "QueryRow"],
+            "implemented_by": "database.PostgresDB"
+          },
+          "StudentRepository": {
+            "methods": [
+              "Create", "GetByID", "GetByStudentID", "List", "Update", "Delete",
+              "AllocateRoom", "VacateRoom"
+            ]
+          },
+          "BuildingRepository": {
+            "methods": [
+              "Create", "GetByID", "List", "Update", "Delete", "GetByGender"
+            ]
+          },
+          "RoomRepository": {
+            "methods": [
+              "Create", "GetByID", "List", "Update", "Delete",
+              "IncrementBedsUsed", "UpdateBedCount",
+              "ListByBuilding", "GetByBuildingID"
+            ]
+          },
+          "AllocationRepository": {
+            "methods": [
+              "Create", "GetByID", "List", "ListByStudent", "ListByRoom",
+              "UpdateStatus", "Cancel", "GetActiveAllocation"
+            ]
+          },
+          "ViolationRepository": {
+            "methods": [
+              "Create", "GetByID", "List", "Update", "Delete"
+            ]
+          },
+          "RepairRepository": {
+            "methods": [
+              "Create", "GetByID", "List", "UpdateStatus",
+              "CountActiveByRoom", "Delete", "Rate"
+            ]
+          }
+        }
+      },
+      "internal/types": {
+        "files": [
+          "student.go",
+          "errors.go",
+          "repair.go"
+        ],
+        "layer": 0,
+        "description": "Core domain types - no internal dependencies",
+        "key_types": [
+          "Student",
+          "Building",
+          "Room",
+          "Allocation",
+          "Violation",
+          "Repair",
+          "Pagination",
+          "PaginatedResult[T]",
+          "AppError"
+        ]
+      },
+      "internal/model": {
+        "files": ["entity.go"],
+        "layer": 0,
+        "description": "Database entity structs with type converters",
+        "key_types": [
+          "StudentEntity",
+          "BuildingEntity",
+          "RoomEntity",
+          "AllocationEntity",
+          "RepairEntity"
+        ]
+      },
+      "internal/request": {
+        "files": [
+          "student.go",
+          "building.go",
+          "room.go",
+          "allocation.go",
+          "violation.go",
+          "repair.go"
+        ],
+        "layer": 3,
+        "description": "HTTP request DTOs with binding validation",
+        "key_types": [
+          "CreateStudentRequest",
+          "UpdateStudentRequest",
+          "AllocateRoomRequest",
+          "CreateBuildingRequest",
+          "UpdateBuildingRequest",
+          "CreateRoomRequest",
+          "UpdateRoomRequest",
+          "ListRoomRequest",
+          "CreateAllocationRequest",
+          "CreateViolationRequest",
+          "UpdateViolationRequest",
+          "ResolveViolationRequest",
+          "ListViolationQuery",
+          "CreateRepairRequest",
+          "UpdateRepairStatusRequest",
+          "RateRepairRequest",
+          "ListRepairRequest"
+        ]
+      },
+      "internal/response": {
+        "files": ["api.go"],
+        "layer": 3,
+        "description": "HTTP response builders",
+        "key_functions": [
+          "Success",
+          "Error",
+          "ErrorWithCode",
+          "Paginated",
+          "Created",
+          "OK",
+          "NoContent"
+        ]
+      },
+      "internal/middleware": {
+        "files": [
+          "auth.go",
+          "cors.go",
+          "logging.go"
+        ],
+        "layer": 3,
+        "description": "HTTP middleware functions",
+        "key_functions": [
+          "Auth(jwtSecret string)",
+          "RequireRole(roles ...string)",
+          "CORS(origins []string)",
+          "Logger(zapLogger *logger.Logger)",
+          "Recovery(zapLogger *logger.Logger)"
+        ]
+      },
+      "pkg/database": {
+        "files": ["postgres.go"],
+        "layer": -1,
+        "description": "PostgreSQL connection pool wrapper using pgx",
+        "key_types": [
+          "PostgresDB",
+          "Rows"
+        ],
+        "key_functions": [
+          "NewPostgres(ctx context.Context, connString string)",
+          "Close(ctx context.Context)",
+          "Exec(ctx context.Context, query string, args ...interface{})",
+          "Query(ctx context.Context, query string, args ...interface{})",
+          "QueryRow(ctx context.Context, query string, args ...interface{})"
+        ]
+      },
+      "pkg/config": {
+        "files": ["config.go"],
+        "layer": -1,
+        "description": "Configuration loading via environment variables",
+        "key_types": ["Config"],
+        "key_functions": ["Load(configDir string)"]
+      },
+      "pkg/logger": {
+        "files": ["logger.go"],
+        "layer": -1,
+        "description": "Zap logger wrapper for structured logging",
+        "key_types": ["Logger", "Field"],
+        "key_functions": [
+          "NewProduction()",
+          "NewDevelopment()",
+          "String", "Int", "Error", "Any", "Duration"
+        ]
+      }
+    },
+    "internal_imports": {
+      "handler_imports": {
+        "internal/middleware": ["CORS"],
+        "internal/response": ["Success", "Error", "ErrorWithCode"],
+        "internal/request": ["*"],
+        "internal/service": ["*"],
+        "internal/types": ["AppError"],
+        "pkg/database": ["PostgresDB"]
+      },
+      "service_imports": {
+        "internal/repository": ["*"],
+        "internal/request": ["*"],
+        "internal/types": ["*"]
+      },
+      "repository_imports": {
+        "internal/types": ["*"],
+        "internal/model": ["RepairEntity"],
+        "pkg/database": ["PostgresDB", "Rows"]
+      },
+      "types_imports": {},
+      "model_imports": {
+        "internal/types": ["*"]
+      },
+      "request_imports": {
+        "internal/types": ["*"]
+      },
+      "response_imports": {
+        "internal/types": ["Pagination"],
+        "github.com/gin-gonic/gin": ["gin.H"]
+      },
+      "middleware_imports": {
+        "pkg/logger": ["Logger"]
+      }
+    },
+    "dependency_graph": {
+      "edges": [
+        "cmd/server -> internal/handler",
+        "cmd/server -> internal/middleware",
+        "cmd/server -> pkg/config",
+        "cmd/server -> pkg/database",
+        "cmd/server -> pkg/logger",
+        "cmd/migrate -> pkg/config",
+        "cmd/migrate -> pkg/database",
+        "cmd/migrate -> pkg/logger",
+        "cmd/seed -> pkg/config",
+        "cmd/seed -> pkg/database",
+        "cmd/seed -> pkg/logger",
+        "internal/handler -> internal/middleware",
+        "internal/handler -> internal/response",
+        "internal/handler -> internal/request",
+        "internal/handler -> internal/service",
+        "internal/handler -> internal/types",
+        "internal/handler -> pkg/database",
+        "internal/middleware -> pkg/logger",
+        "internal/service -> internal/repository",
+        "internal/service -> internal/request",
+        "internal/service -> internal/types",
+        "internal/repository -> internal/types",
+        "internal/repository -> internal/model",
+        "internal/repository -> pkg/database",
+        "internal/model -> internal/types",
+        "internal/request -> internal/types",
+        "internal/response -> internal/types"
+      ]
+    },
+    "circular_dependencies": {
+      "detected": false,
+      "cycles": []
+    },
+    "api_routes": {
+      "students": {
+        "POST /api/v1/students": "Create",
+        "GET /api/v1/students": "List",
+        "GET /api/v1/students/:id": "Get",
+        "PUT /api/v1/students/:id": "Update",
+        "DELETE /api/v1/students/:id": "Delete",
+        "POST /api/v1/students/:id/allocate": "AllocateRoom",
+        "POST /api/v1/students/:id/vacate": "Vacate"
+      },
+      "buildings": {
+        "POST /api/v1/buildings": "Create",
+        "GET /api/v1/buildings": "List",
+        "GET /api/v1/buildings/:id": "Get",
+        "PUT /api/v1/buildings/:id": "Update",
+        "DELETE /api/v1/buildings/:id": "Delete",
+        "GET /api/v1/buildings/:id/rooms": "ListRooms"
+      },
+      "rooms": {
+        "POST /api/v1/rooms": "Create",
+        "GET /api/v1/rooms": "List",
+        "GET /api/v1/rooms/:id": "Get",
+        "PUT /api/v1/rooms/:id": "Update",
+        "DELETE /api/v1/rooms/:id": "Delete"
+      },
+      "allocations": {
+        "POST /api/v1/allocations": "Create",
+        "GET /api/v1/allocations": "List",
+        "GET /api/v1/allocations/:id": "Get",
+        "DELETE /api/v1/allocations/:id": "Cancel"
+      },
+      "violations": {
+        "POST /api/v1/violations": "Create",
+        "GET /api/v1/violations": "List",
+        "GET /api/v1/violations/:id": "Get",
+        "PUT /api/v1/violations/:id": "Update",
+        "DELETE /api/v1/violations/:id": "Delete",
+        "PUT /api/v1/violations/:id/resolve": "Resolve"
+      },
+      "repairs": {
+        "POST /api/v1/repairs": "Create",
+        "GET /api/v1/repairs": "List",
+        "GET /api/v1/repairs/:id": "Get",
+        "PUT /api/v1/repairs/:id/status": "UpdateStatus",
+        "PUT /api/v1/repairs/:id/rating": "Rate",
+        "DELETE /api/v1/repairs/:id": "Delete"
+      }
+    },
+    "key_code_paths": {
+      "allocation_flow": {
+        "description": "Student room allocation process - creates allocation, updates student, updates room bed count",
+        "steps": [
+          {
+            "layer": "handler",
+            "file": "internal/handler/allocation_handler.go",
+            "method": "Create",
+            "action": "HTTP handler receives POST /api/v1/allocations"
+          },
+          {
+            "layer": "service",
+            "file": "internal/service/allocation_svc.go",
+            "method": "CreateAllocation",
+            "action": "Validates student exists, room exists, no existing allocation, room has capacity"
+          },
+          {
+            "layer": "repository",
+            "file": "internal/repository/allocation_repo.go",
+            "method": "Create",
+            "action": "INSERT allocation record"
+          },
+          {
+            "layer": "repository",
+            "file": "internal/repository/student_repo.go",
+            "method": "AllocateRoom",
+            "action": "UPDATE students SET room_id = $2"
+          },
+          {
+            "layer": "repository",
+            "file": "internal/repository/room_repo.go",
+            "method": "UpdateBedCount",
+            "action": "UPDATE rooms SET beds_used = beds_used + 1"
+          }
+        ]
+      },
+      "batch_allocation_flow": {
+        "description": "Batch student allocation for开学 (semester start)",
+        "notes": "Currently not implemented as a single endpoint - would iterate through students via ListRooms + CreateAllocation"
+      },
+      "checkout_flow": {
+        "description": "Student checkout/vacate process",
+        "steps": [
+          {
+            "layer": "handler",
+            "file": "internal/handler/student_handler.go",
+            "method": "Vacate",
+            "action": "HTTP handler receives POST /api/v1/students/:id/vacate"
+          },
+          {
+            "layer": "service",
+            "file": "internal/service/student_svc.go",
+            "method": "VacateStudent",
+            "action": "Validates student has room, clears room_id, decrements bed count"
+          },
+          {
+            "layer": "repository",
+            "file": "internal/repository/student_repo.go",
+            "method": "VacateRoom",
+            "action": "UPDATE students SET room_id = NULL"
+          },
+          {
+            "layer": "repository",
+            "file": "internal/repository/room_repo.go",
+            "method": "UpdateBedCount",
+            "action": "UPDATE rooms SET beds_used = beds_used - 1"
+          }
+        ]
+      },
+      "repair_status_flow": {
+        "description": "Repair request status state machine",
+        "states": [
+          "pending -> assigned -> repairing -> completed",
+          "pending -> cancelled",
+          "assigned -> cancelled"
+        ],
+        "files": [
+          "internal/service/repair_svc.go",
+          "internal/repository/repair_repo.go"
+        ]
+      }
+    },
+    "entities": [
+      {
+        "name": "Building",
+        "layer": 0,
+        "fields": ["ID", "Name", "Gender", "FloorCount", "RoomPerFloor", "Description", "Status", "CreatedAt", "UpdatedAt"],
+        "repository": "BuildingRepository",
+        "service": "BuildingService",
+        "handler": "BuildingHandler"
+      },
+      {
+        "name": "Room",
+        "layer": 0,
+        "fields": ["ID", "BuildingID", "Number", "Floor", "Type", "BedsTotal", "BedsUsed", "HasBathroom", "HasAC", "Status", "CreatedAt", "UpdatedAt"],
+        "repository": "RoomRepository",
+        "service": "RoomService",
+        "handler": "RoomHandler"
+      },
+      {
+        "name": "Student",
+        "layer": 0,
+        "fields": ["ID", "StudentID", "Name", "Gender", "Phone", "Email", "Major", "Grade", "RoomID", "CheckInAt", "Status", "CreatedAt", "UpdatedAt"],
+        "repository": "StudentRepository",
+        "service": "StudentService",
+        "handler": "StudentHandler"
+      },
+      {
+        "name": "Allocation",
+        "layer": 0,
+        "fields": ["ID", "StudentID", "RoomID", "BedNumber", "Status", "CheckInAt", "CheckOutAt", "Reason", "CreatedAt"],
+        "repository": "AllocationRepository",
+        "service": "AllocationService",
+        "handler": "AllocationHandler"
+      },
+      {
+        "name": "Violation",
+        "layer": 0,
+        "fields": ["ID", "StudentID", "Type", "Description", "Points", "HandledBy", "HandledAt", "Status", "CreatedAt"],
+        "repository": "ViolationRepository",
+        "service": "ViolationService",
+        "handler": "ViolationHandler"
+      },
+      {
+        "name": "Repair",
+        "layer": 0,
+        "fields": ["ID", "RoomID", "ReporterID", "RepairerID", "Type", "Description", "Status", "Priority", "ScheduledAt", "CompletedAt", "Cost", "Rating", "Remark", "CreatedAt", "UpdatedAt"],
+        "repository": "RepairRepository",
+        "service": "RepairService",
+        "handler": "RepairHandler"
+      }
+    ],
+    "database_schema": {
+      "tables": [
+        {
+          "name": "buildings",
+          "columns": ["id", "name", "gender", "floor_count", "room_per_floor", "status", "description", "created_at", "updated_at"]
+        },
+        {
+          "name": "rooms",
+          "columns": ["id", "building_id", "number", "floor", "type", "beds_total", "beds_used", "has_bathroom", "has_ac", "status", "created_at", "updated_at", "deleted_at"]
+        },
+        {
+          "name": "students",
+          "columns": ["id", "student_no", "name", "gender", "phone", "email", "major", "grade", "room_id", "status", "created_at", "updated_at"]
+        },
+        {
+          "name": "allocations",
+          "columns": ["id", "student_id", "room_id", "bed_number", "status", "check_in_at", "check_out_at", "reason", "created_at", "updated_at"]
+        },
+        {
+          "name": "violations",
+          "columns": ["id", "student_id", "type", "description", "points", "handled_by", "handled_at", "status", "created_at"]
+        },
+        {
+          "name": "repairs",
+          "columns": ["id", "room_id", "reporter_id", "repairer_id", "type", "description", "status", "priority", "scheduled_at", "completed_at", "cost", "rating", "remark", "created_at", "updated_at", "deleted_at"]
+        }
+      ],
+      "foreign_keys": [
+        "rooms.building_id -> buildings.id ON DELETE CASCADE",
+        "students.room_id -> rooms.id ON DELETE SET NULL",
+        "allocations.student_id -> students.id ON DELETE CASCADE",
+        "allocations.room_id -> rooms.id ON DELETE RESTRICT",
+        "violations.student_id -> students.id ON DELETE CASCADE",
+        "repairs.room_id -> rooms.id ON DELETE CASCADE"
+      ]
+    }
+  },
+  "frontend": {
+    "structure": "Vue3 SPA",
+    "layers": {
+      "L0_types": "frontend/src/types/",
+      "L0_utils": "frontend/src/utils/",
+      "L1_api": "frontend/src/api/",
+      "L2_stores": "frontend/src/stores/",
+      "L3_views": "frontend/src/views/",
+      "L4_components": "frontend/src/components/"
+    },
+    "note": "Frontend architecture documented in AGENTS.md but detailed analysis not in scope for Go backend task"
+  },
+  "issues_observed": [
+    {
+      "severity": "low",
+      "type": "design",
+      "description": "model package imports types package (internal/model -> internal/types) which is technically an L0-to-L0 dependency, not a violation but noteworthy"
+    },
+    {
+      "severity": "info",
+      "type": "incomplete",
+      "description": "request/repair.go has comment saying 'Layer 0' but it's actually used in Layer 3 handlers - minor documentation inconsistency"
+    },
+    {
+      "severity": "low",
+      "type": "naming",
+      "description": "RoomRepository uses both 'IncrementBedsUsed' and 'UpdateBedCount' methods that do similar things"
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+# harness/tasks/task-room-transfer.yaml
+# 宿舍调换场景任务
+# 触发条件：学生换房、宿舍调换、换宿、房间调整
+
+name: task-room-transfer
+description: |
+  宿舍调换场景：已入住学生更换房间。
+  核心挑战：
+  1. 源房间床位释放（beds_used - 1）
+  2. 目标房间床位占用（beds_used + 1）
+  3. 性别约束不变（换宿不能改变性别楼栋）
+  4. Allocation 记录变更（床位号更新）
+
+trigger:
+  - '换房'
+  - '换宿'
+  - '调换房间'
+  - '宿舍调整'
+  - 'room transfer'
+  - 'room swap'
+
+inputs:
+  student_id:
+    type: string
+    description: 学生ID
+    required: true
+  target_room_id:
+    type: string
+    description: 目标房间ID
+    required: true
+  target_bed_number:
+    type: number
+    description: 目标床位号
+    required: true
+
+context:
+  - path: docs/design-docs/ALLOCATION_FLOW.md
+    reason: 理解分配/换宿的业务规则
+  - path: docs/design-docs/BUILDING_MANAGEMENT.md
+    reason: 了解楼栋性别约束
+  - path: internal/service/allocation_svc.go
+    reason: 参考现有 service 的事务处理
+
+steps:
+  - id: validate-transfer
+    description: |
+      校验调换申请：
+      1. 学生当前有活跃 Allocation（status = 'active'）
+      2. 目标房间 status = 'active'
+      3. 目标房间 beds_used < beds_total
+      4. 目标床位未被占用
+      5. 楼栋性别与学生性别一致
+    verify: |
+      返回 { valid: boolean, reason?: string }
+
+  - id: execute-transfer
+    description: |
+      在同一事务中执行：
+      1. 源 Allocation bed_number 更新为新床位号，room_id 更新为新房间
+         UPDATE allocations SET room_id = $new_room_id, bed_number = $new_bed, updated_at = NOW()
+         WHERE student_id = $student_id AND status = 'active'
+      2. 源房间 beds_used - 1
+         UPDATE rooms SET beds_used = beds_used - 1 WHERE id = $old_room_id
+      3. 目标房间 beds_used + 1
+         UPDATE rooms SET beds_used = beds_used + 1 WHERE id = $new_room_id
+    verify: |
+      两边 beds_used 正确变动，allocation 记录更新
+
+api_contract:
+  PUT /api/allocations/transfer
+  Request:
+    student_id: string
+    target_room_id: string
+    target_bed_number: number
+  Response:
+    {
+      "id": string
+      "student_id": string
+      "room_id": string
+      "bed_number": number
+      "status": "active"
+      "message": "Transfer successful"
+    }

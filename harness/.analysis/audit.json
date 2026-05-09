@@ -1,0 +1,358 @@
+{
+  "audit_timestamp": "2026-05-09T04:27:00Z",
+  "project": "dormitory-management",
+  "tech_stack": "Go + Vue3",
+
+  "dimensions": {
+    "AGENTS.md": {
+      "score": 7,
+      "exists": true,
+      "lines": 130,
+      "target_lines": "80-120",
+      "line_count_compliant": false,
+      "inaccuracy": "Claims ~120 lines but actual is 130 lines",
+      "accuracy": "Good - comprehensive navigation index linking to all docs",
+      "coverage": {
+        "backend_architecture": true,
+        "frontend_architecture": true,
+        "layer_map": true,
+        "harness_tasks": true,
+        "development_commands": true,
+        "design_docs": true
+      },
+      "issues": [
+        "Line count 130 exceeds target 80-120 by 10 lines",
+        "Self-document says '约 120 行' but is inaccurate"
+      ]
+    },
+
+    "docs_ARCHITECTURE": {
+      "score": 8,
+      "exists": true,
+      "lines": 183,
+      "accuracy": "Good - mermaid diagrams, layer table, dependency graph, data flow",
+      "coverage": {
+        "go_layers": true,
+        "frontend_layers": true,
+        "dependency_graph": true,
+        "data_flow": true,
+        "key_design_decisions": true,
+        "module_dependencies": true
+      },
+      "issues": [
+        "Does not reference LAYER_MAP.md for detailed rules",
+        "API reference link points to non-existent docs/references/api.md"
+      ]
+    },
+
+    "docs_LAYER_MAP": {
+      "score": 9,
+      "exists": true,
+      "lines": 225,
+      "accuracy": "Excellent - detailed dependency matrices for both Go and Vue3",
+      "coverage": {
+        "go_backend_layers": true,
+        "vue3_frontend_layers": true,
+        "dependency_matrices": true,
+        "forbidden_patterns": true,
+        "violation_examples": true,
+        "enforcement_mechanism": true,
+        "fix_procedures": true
+      },
+      "issues": [
+        "Large file (225 lines) - could be split into Go and Vue3 sections",
+        "Vue3 section mentions composables but project uses Pinia stores (inconsistency)"
+      ]
+    },
+
+    "docs_design_docs": {
+      "score": 8,
+      "exists": true,
+      "coverage": {
+        "BUILDING_MANAGEMENT": true,
+        "ROOM_MANAGEMENT": true,
+        "ALLOCATION_FLOW": true,
+        "VIOLATION_SYSTEM": true,
+        "REPAIR_SYSTEM": true,
+        "STUDENT_MANAGEMENT": true,
+        "index": true
+      },
+      "issues": [
+        "STUDENT_MANAGEMENT.md seems newly added (May 8) - may not be integrated into navigation",
+        "Missing: FEE_MANAGEMENT.md (mentioned in ARCHITECTURE but not in design-docs)",
+        "Missing: INSPECTION_SYSTEM.md (mentioned in ARCHITECTURE but not in design-docs)"
+      ]
+    },
+
+    "scripts_lint_deps_go": {
+      "score": 7,
+      "exists": true,
+      "lines": 186,
+      "layer_map_coverage": {
+        "go_backend": true,
+        "frontend": false
+      },
+      "error_message_quality": {
+        "file_line": true,
+        "rule_violated": true,
+        "how_to_fix": true
+      },
+      "issues": [
+        "Only covers Go backend layers - no frontend layer checking",
+        "No mention of how to run frontend layer check (users must know to use lint-deps.mjs separately)",
+        "Error output could be more structured (JSON format for programmatic parsing)"
+      ]
+    },
+
+    "scripts_lint_deps_frontend": {
+      "score": 6,
+      "exists_dual_implementations": true,
+      "mjs_exists": true,
+      "ts_exists": true,
+      "layer_map_coverage": {
+        "vue3_layers": true,
+        "composables_mentioned": true,
+        "stores_actual": "Pinia stores used instead of composables"
+      },
+      "issues": [
+        "Two implementations exist (.mjs and .ts) - duplication risk and potential drift",
+        "lint-deps.ts uses different rule structure than lint-deps.mjs",
+        "lint-deps.ts comments say 'composables' but LAYER_MAP.md and actual project use 'stores'",
+        "lint-deps.mjs correctly maps to Pinia stores - lint-deps.ts is outdated",
+        "Not integrated into Makefile 'verify-fe' target (only lint-fe and type-check-fe)",
+        "Makefile lint-deps-fe uses .mjs but lint-deps.ts is also present causing confusion"
+      ]
+    },
+
+    "harness_tasks": {
+      "score": 8,
+      "task_templates_exist": true,
+      "task_boilerplate": {
+        "exists": true,
+        "lines": 256,
+        "quality": "Excellent - detailed steps, verification commands, constraints"
+      },
+      "task_api_integration": {
+        "exists": true,
+        "lines": 185
+      },
+      "task_batch_allocation": {
+        "exists": true,
+        "lines": 102
+      },
+      "task_batch_checkout": {
+        "exists": true,
+        "lines": 73
+      },
+      "task_room_transfer": {
+        "exists": true,
+        "lines": 66
+      },
+      "completed_task_runs": 2,
+      "issues": [
+        "No verification of frontend layer compliance in task templates",
+        "No task for emergency hotfix workflow",
+        "No task for database migration only",
+        "Task state structure not documented"
+      ]
+    },
+
+    "harness_trace": {
+      "score": 4,
+      "exists": true,
+      "trace_format": "JSON verification reports",
+      "memory_structure": "Checkpoints + State directories per task",
+      "issues": [
+        "Trace contains SKIP report, not actual execution trace",
+        "No documented trace format specification",
+        "No memory structure documentation",
+        "verification-report-room.json shows 'skip' due to Docker lacking Go toolchain - this is a significant limitation",
+        "No trace replay or verification automation"
+      ]
+    },
+
+    "harness_config": {
+      "score": 6,
+      "environment_json": {
+        "exists": true,
+        "lines": 138,
+        "schema_version": "2.0"
+      },
+      "issues": [
+        "Schema has internal inconsistencies (services array referenced but not properly closed)",
+        "Missing: actual services[] array definition in JSON (only _meta.todos exists)",
+        "Frontend dev port mismatch: environment.json says 3000, but harness/scripts/start-fe.sh likely uses Vite default 5173",
+        "No validation schema for environment.json"
+      ]
+    },
+
+    "harness_scripts": {
+      "score": 7,
+      "exists_setup": true,
+      "exists_start_be": true,
+      "exists_start_fe": true,
+      "exists_teardown": true,
+      "issues": [
+        "start-fe.sh and start-frontend.sh both exist - potential confusion",
+        "start-server.sh and start-be.sh both exist - potential confusion",
+        "No health check verification after starting services",
+        "No error handling for partial startup failures"
+      ]
+    },
+
+    "makefile": {
+      "score": 7,
+      "exists": true,
+      "lines": 129,
+      "backend_targets": ["build-be", "lint-be", "lint-quality-be", "test-be"],
+      "frontend_targets": ["type-check-fe", "lint-fe", "lint-deps-fe", "build-fe"],
+      "integration_targets": ["all", "verify-be", "verify-fe", "quick"],
+      "issues": [
+        "lint-deps-fe (frontend layer check) is separate from verify-fe, not part of main flow",
+        "No single command for full layer check (both backend + frontend)",
+        "Missing: lint-quality-fe target (only exists for backend)"
+      ]
+    }
+  },
+
+  "gaps": [
+    {
+      "id": "G-01",
+      "priority": "P0",
+      "dimension": "scripts_lint_deps_frontend",
+      "title": "Duplicate frontend layer linters causing drift",
+      "description": "Both lint-deps.mjs (177 lines) and lint-deps.ts (120 lines) exist with different implementations. lint-deps.ts references composables but project uses Pinia stores. This causes confusion and maintenance burden.",
+      "recommendation": "Remove lint-deps.ts, keep only lint-deps.mjs. Update Makefile to explicitly use node scripts/lint-deps.mjs"
+    },
+    {
+      "id": "G-02",
+      "priority": "P0",
+      "dimension": "AGENTS.md",
+      "title": "AGENTS.md line count claim inaccurate",
+      "description": "AGENTS.md header says '约 120 行' but actual line count is 130. This is a documentation inaccuracy.",
+      "recommendation": "Update the footer note to say '约 130 行' or reduce content to fit 120 lines"
+    },
+    {
+      "id": "G-03",
+      "priority": "P0",
+      "dimension": "harness_trace",
+      "title": "Trace format is skip report, not actual execution trace",
+      "description": "harness/trace/verification-report-room.json contains a skip message indicating Docker container lacks Go toolchain. This means the trace system cannot verify code execution inside its own environment.",
+      "recommendation": "Either: 1) Ensure Docker image includes Go toolchain, or 2) Document that verification must run on host machine"
+    },
+    {
+      "id": "G-04",
+      "priority": "P1",
+      "dimension": "docs_design_docs",
+      "title": "Missing design docs for documented features",
+      "description": "ARCHITECTURE.md mentions '费用管理' (FEE_MANAGEMENT) and '巡查记录' (INSPECTION_SYSTEM) but no corresponding design-docs exist.",
+      "recommendation": "Either create FEE_MANAGEMENT.md and INSPECTION_SYSTEM.md, or update ARCHITECTURE.md to remove these items"
+    },
+    {
+      "id": "G-05",
+      "priority": "P1",
+      "dimension": "harness_config",
+      "title": "environment.json has structural issues",
+      "description": "Schema version 2.0 shows 'services' array referenced but the actual services[] definition appears incomplete or malformed. Also port mismatch: environment.json says 3000 for frontend but Vite uses 5173.",
+      "recommendation": "Fix JSON structure and verify frontend port configuration matches actual Vite config"
+    },
+    {
+      "id": "G-06",
+      "priority": "P1",
+      "dimension": "makefile",
+      "title": "Frontend layer check not integrated in main verify-fe flow",
+      "description": "lint-deps-fe (frontend layer check) exists as separate target but not called by verify-fe. User must run lint-deps-fe manually or separately.",
+      "recommendation": "Add lint-deps-fe to verify-fe prerequisites: 'verify-fe: type-check-fe lint-fe lint-deps-fe build-fe'"
+    },
+    {
+      "id": "G-07",
+      "priority": "P2",
+      "dimension": "scripts_lint_deps_go",
+      "title": "No programmatic trace output format",
+      "description": "lint-deps.go outputs human-readable text but no JSON format for CI/CD integration or trace systems.",
+      "recommendation": "Add --json flag to output machine-parseable format for harness integration"
+    },
+    {
+      "id": "G-08",
+      "priority": "P2",
+      "dimension": "harness_trace",
+      "title": "No trace format specification documentation",
+      "description": "No documented spec for trace format, memory structure, or checkpoint format.",
+      "recommendation": "Create docs/harness/TRACE_FORMAT.md documenting JSON schema for traces, checkpoints, and memory"
+    },
+    {
+      "id": "G-09",
+      "priority": "P2",
+      "dimension": "scripts_lint_deps_frontend",
+      "title": "lint-deps.mjs Vue3 layer mapping may be incorrect",
+      "description": "lint-deps.mjs uses Layer 0-4 for Vue3 (types, api, stores, views, components) but LAYER_MAP.md also uses 0-4 for different directories. The mapping looks correct but not validated against actual project.",
+      "recommendation": "Verify lint-deps.mjs correctly handles @/ alias imports and self-references"
+    },
+    {
+      "id": "G-10",
+      "priority": "P3",
+      "dimension": "harness_tasks",
+      "title": "No task templates for common scenarios",
+      "description": "Missing templates for: emergency hotfix, database migration only, frontend-only changes, security patch.",
+      "recommendation": "Add task-emergency-fix.yaml, task-migration-only.yaml, task-frontend-only.yaml"
+    },
+    {
+      "id": "G-11",
+      "priority": "P3",
+      "dimension": "harness_scripts",
+      "title": "Duplicate startup scripts causing confusion",
+      "description": "Both start-be.sh and start-server.sh exist; both start-fe.sh and start-frontend.sh exist.",
+      "recommendation": "Remove duplicates and keep consistent naming (start-be.sh, start-fe.sh)"
+    }
+  ],
+
+  "summary_scores": {
+    "AGENTS.md": 7,
+    "docs_ARCHITECTURE": 8,
+    "docs_LAYER_MAP": 9,
+    "docs_design_docs": 8,
+    "scripts_lint_deps_go": 7,
+    "scripts_lint_deps_frontend": 6,
+    "harness_tasks": 8,
+    "harness_trace": 4,
+    "harness_config": 6,
+    "harness_scripts": 7,
+    "makefile": 7
+  },
+
+  "overall_score": 7.0,
+
+  "recommendations": [
+    {
+      "priority": "P0",
+      "actions": [
+        "Remove scripts/lint-deps.ts (keep only lint-deps.mjs)",
+        "Fix AGENTS.md line count claim",
+        "Document that harness verification requires host machine with Go toolchain, not Docker container"
+      ]
+    },
+    {
+      "priority": "P1",
+      "actions": [
+        "Create missing design docs (FEE_MANAGEMENT, INSPECTION_SYSTEM) or remove from ARCHITECTURE.md",
+        "Fix environment.json structural issues and port mismatch",
+        "Add lint-deps-fe to verify-fe in Makefile"
+      ]
+    },
+    {
+      "priority": "P2",
+      "actions": [
+        "Add --json output flag to lint-deps.go",
+        "Document trace format in docs/harness/TRACE_FORMAT.md",
+        "Verify lint-deps.mjs handles @/ alias correctly"
+      ]
+    },
+    {
+      "priority": "P3",
+      "actions": [
+        "Add missing task templates for edge cases",
+        "Remove duplicate startup scripts"
+      ]
+    }
+  ]
+}

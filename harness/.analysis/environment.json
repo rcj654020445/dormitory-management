@@ -1,0 +1,119 @@
+{
+  "version": "1.0",
+  "analyzed_at": "2026-05-09T04:27:00Z",
+  "project": "dormitory-management",
+  
+  "database": {
+    "driver": "postgres",
+    "package": "github.com/jackc/pgx/v5",
+    "pool": "pgxpool",
+    "detected": ["internal/repository/db.go", "pkg/database/postgres.go"],
+    "mysql": false,
+    "sqlite": false,
+    "mongodb": false
+  },
+  
+  "service_sdks": {
+    "redis": {
+      "supported": false,
+      "note": "Redis defined in docker-compose.yml and harness config but NO actual Redis usage in Go code"
+    },
+    "kafka": false,
+    "aws": false,
+    "gcp": false
+  },
+  
+  "environment_variables": {
+    "required": {
+      "DATABASE_URL": {
+        "purpose": "PostgreSQL connection string",
+        "example": "postgres://dormitory:password@localhost:5432/dormitory?sslmode=disable",
+        "sensitive": true
+      },
+      "JWT_SECRET": {
+        "purpose": "JWT signing key for authentication",
+        "sensitive": true
+      }
+    },
+    "optional": {
+      "PORT": {
+        "purpose": "HTTP server port",
+        "default": "8080",
+        "sensitive": false
+      },
+      "ENV": {
+        "purpose": "Environment mode",
+        "default": "development",
+        "sensitive": false
+      },
+      "LOG_LEVEL": {
+        "purpose": "Logging level",
+        "default": "info",
+        "sensitive": false
+      },
+      "CORS_ORIGINS": {
+        "purpose": "Allowed CORS origins (comma-separated)",
+        "default": "http://localhost:3000",
+        "sensitive": false
+      },
+      "REDIS_URL": {
+        "purpose": "Redis connection URL (defined but NOT USED in code)",
+        "default": "redis://localhost:6379",
+        "sensitive": false
+      }
+    }
+  },
+  
+  "docker_compose": {
+    "exists": true,
+    "path": "/opt/data/dormitory-management/docker-compose.yml",
+    "services": ["postgres:15", "redis:7"],
+    "ports": {
+      "postgres": "5432:5432",
+      "redis": "6379:6379"
+    }
+  },
+  
+  "kubernetes": {
+    "exists": false,
+    "note": "No k8s manifests found"
+  },
+  
+  "secrets": [
+    {
+      "name": "DATABASE_URL",
+      "type": "connection_string_with_embedded_password",
+      "required": true
+    },
+    {
+      "name": "DB_PASSWORD",
+      "type": "password",
+      "required": true,
+      "note": "Referenced in docker-compose.yml but not directly used by app code"
+    },
+    {
+      "name": "JWT_SECRET",
+      "type": "signing_key",
+      "required": true
+    }
+  ],
+  
+  "harness_environment_json": {
+    "exists": true,
+    "path": "/opt/data/dormitory-management/harness/config/environment.json",
+    "completeness_issues": [
+      "REDIS_URL default value malformed: contains '***' and incorrect port reference",
+      "Redis is defined but NOT actually used in Go code - no internal/cache package",
+      "runtime.version shows '1.22' but go.mod specifies '1.23'"
+    ]
+  },
+  
+  "summary": {
+    "db_only_postgres": true,
+    "redis_defined_but_unused": true,
+    "aws_kafka_gcp_absent": true,
+    "secrets_identified": 3,
+    "docker_compose_ready": true,
+    "k8s_absent": true
+  }
+}

@@ -1,0 +1,94 @@
+# harness/tasks/task-batch-checkout.yaml
+# 批量退宿场景任务
+# 触发条件：毕业批量退宿、批量退房、批量迁出
+
+name: task-batch-checkout
+description: |
+  批量退宿场景：毕业生集中退宿。
+  核心挑战：
+  1. 退宿前检查（是否有未缴费用/未处理维修/未处理违规）
+  2. 房间床位释放
+  3. 学生状态变更
+  4. 资产确认（房间检查清单）
+
+trigger:
+  - '批量退宿'
+  - '批量退房'
+  - '毕业退宿'
+  - '批量迁出'
+  - 'batch checkout'
+  - 'bulk check-out'
+
+inputs:
+  check_fees:
+    type: boolean
+    description: 退宿前是否检查费用
+    default: true
+  check_repairs:
+    type: boolean
+    description: 退宿前是否检查维修单
+    default: true
+  check_violations:
+    type: boolean
+    description: 退宿前是否检查未处理违规
+    default: true
+
+context:
+  - path: docs/design-docs/ALLOCATION_FLOW.md
+    reason: 理解退宿的业务规则（床位释放、学生状态变更）
+  - path: docs/design-docs/REPAIR_SYSTEM.md
+    reason: 理解维修单状态与退宿的关系
+  - path: docs/design-docs/VIOLATION_SYSTEM.md
+    reason: 理解违规处理与退宿的关系
+
+steps:
+  - id: pre-check
+    description: |
+      对每个退宿学生，依次检查：
+      1. 是否有未完成的维修单（status != completed/cancelled）
+      2. 是否有未处理的违规（status != resolved）
+      3. 是否有未缴费用（cost > 0 and unpaid）
+      任一项不满足则不允许退宿。
+
+  - id: release-beds
+    description: |
+      对每个退宿学生：
+      UPDATE rooms SET beds_used = beds_used - 1
+      WHERE id = (SELECT room_id FROM allocations WHERE student_id = $sid AND status = 'active')
+
+      必须在事务中执行，且检查 beds_used > 0。
+
+  - id: create-checkout-record
+    description: |
+      创建退宿记录：
+      - 记录退宿时间（check_out_at = NOW()）
+      - Allocation status → 'checked_out'
+      - Student status → 'checked_out'
+
+  - id: asset-confirmation
+    description: |
+      退宿房间资产检查：
+      - 房间是否整洁
+      - 设施是否完好
+      - 如有损坏，生成维修单
+    verify: |
+      房间 beds_used 正确递减
+
+api_contract:
+  POST /api/allocations/batch-checkout
+  Request:
+    student_ids: string[]  # 要退宿的学生ID列表
+    check_options:
+      check_repairs: boolean
+      check_violations: boolean
+      check_fees: boolean
+  Response:
+    {
+      "success_count": number
+      "fail_count": number
+      "results": Array<{
+        student_id: string
+        status: "checked_out" | "blocked"
+        reason?: string  # blocked 时返回原因
+      }>
+    }

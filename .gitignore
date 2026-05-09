@@ -1,0 +1,43 @@
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/server
+/migrate
+/seed
+dist/
+dist-ssr/
+
+# Test artifacts
+*.test
+coverage/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+.npm/
+.yarn/
+
+# Go
+vendor/
+*.log
+
+# Python (linting scripts)
+__pycache__/
+*.py[cod]

@@ -1,0 +1,256 @@
+# harness/tasks/task-boilerplate.yaml
+# 标准 CRUD 实体任务模板
+# 触发条件：用户要求"为 {entity} 实现 CRUD"、"新增 {entity} 模块"、"完整的 {entity} 管理"
+
+name: task-boilerplate
+description: |
+  为新实体实现完整的 CRUD 功能，包括：
+  - 类型定义（types）
+  - 数据访问层（repository）
+  - 业务逻辑层（service）
+  - HTTP 处理层（handler）
+  - 路由注册（router）
+  - 单元测试（service 层）
+
+trigger:
+  - '为.+(student|building|room|allocation|violation|repair).+(实现|创建|新增|完整)'
+  - '新增.{1,20}模块'
+  - '完整的.{1,20}管理'
+  - '实现.{1,20}CRUD'
+  - 'add CRUD for'
+  - '为.+(room|repair).+(实现|创建|新增)'
+
+entity_hint:
+  description: |
+    当 trigger 匹配时，从用户输入中提取实体名称。
+    实体名称格式：snake_case（如 student, building, room）
+    映射关系：
+      - 学生 → student
+      - 楼栋/宿舍楼 → building
+      - 房间 → room
+      - 分配/入住 → allocation
+      - 违规 → violation
+      - 维修 → repair
+
+inputs:
+  entity:
+    type: string
+    description: 实体名称（snake_case），如 student, building, room
+    required: true
+  plural:
+    type: string
+    description: 复数形式，如 students, buildings, rooms
+    required: false
+    # 自动从 entity 推断（+s）
+  capitalize:
+    type: string
+    description: PascalCase 大写形式，如 Student, Building, Room
+    required: false
+    # 自动从 entity 推断
+
+context:
+  - path: docs/LAYER_MAP.md
+    reason: 必须严格遵守层级依赖规则，不允许反向依赖
+  - path: internal/types/student.go
+    reason: 参考现有实体的类型定义格式
+  - path: internal/repository/allocation_repo.go
+    reason: 参考现有 repo 的 CRUD 模式
+  - path: internal/service/allocation_svc.go
+    reason: 参考现有 service 的业务逻辑组织方式
+
+steps:
+  - id: check-existing
+    description: |
+      检查实体是否已存在，避免重复实现。
+      检查范围：
+      - internal/types/ 中是否有 {entity}.go
+      - internal/repository/ 中是否有 {entity}_repo.go
+      - internal/service/ 中是否有 {entity}_svc.go
+      - internal/handler/ 中是否有 {entity}_handler.go
+    verify: |
+      test -f internal/types/{entity}.go && \
+      test -f internal/repository/{entity}_repo.go && \
+      test -f internal/service/{entity}_svc.go && \
+      test -f internal/handler/{entity}_handler.go
+    on_error:
+      message: "实体 {entity} 已存在，先检查是否需要扩展，不是重新创建"
+
+  - id: create-types
+    description: |
+      在 internal/types/{entity}.go 创建实体类型定义。
+
+      必须包含：
+      - 主结构体（如 Student、Building）
+      - 创建请求结构体 Create{Entity}Request（JSON tag，binding required 校验）
+      - 更新请求结构体 Update{Entity}Request（JSON tag）
+      - 查询参数结构体 List{Entity}Query
+      - 响应结构体 {Entity}Response
+
+      规则：
+      - 字段使用蛇形命名（json:"field_name"）
+      - 时间字段使用 time.Time 类型
+      - 必须有 ID 字段（uuid）
+      - 必填字段加 binding:"required"
+    verify: |
+      grep -q "type {Entity} struct" internal/types/{entity}.go && \
+      grep -q "type Create{Entity}Request struct" internal/types/{entity}.go
+    output:
+      path: internal/types/{entity}.go
+
+  - id: create-repository
+    description: |
+      在 internal/repository/{entity}_repo.go 创建数据访问层。
+
+      必须实现：
+      - Create(ctx, *types.{Entity}) error
+      - GetByID(ctx, string) (*types.{Entity}, error)
+      - List(ctx, page, pageSize int) ([]*types.{Entity}, int, error)
+      - Update(ctx, *types.{Entity}) error
+      - Delete(ctx, string) error
+
+      规则（来自 docs/LAYER_MAP.md）：
+      - Layer 1，只能依赖 internal/types 和 pkg/*
+      - SQL 使用 $1, $2 占位符（PostgreSQL）
+      - 必须使用 context.Context 作为第一个参数
+      - Exec 返回值只接受 error（不是 sql.Result）
+      - Scan 时注意 nullable 字段用 *string / *int 而不是 string / int
+    verify: |
+      grep -q "func.*Create.*{Entity}" internal/repository/{entity}_repo.go && \
+      grep -q "func.*GetByID.*{Entity}" internal/repository/{entity}_repo.go
+    output:
+      path: internal/repository/{entity}_repo.go
+    test_output:
+      path: internal/repository/{entity}_repo_test.go
+
+  - id: create-service
+    description: |
+      在 internal/service/{entity}_svc.go 创建业务逻辑层。
+
+      必须实现：
+      - Create{Entity}(ctx, *request.Create{Entity}Request) (*types.{Entity}, error)
+      - Get{Entity}(ctx, string) (*types.{Entity}, error)
+      - List{Entity}s(ctx, page, pageSize int) (*types.PaginatedResult, error)
+      - Update{Entity}(ctx, string, *request.Update{Entity}Request) (*types.{Entity}, error)
+      - Delete{Entity}(ctx, string) error
+
+      规则（来自 docs/LAYER_MAP.md）：
+      - Layer 2，只能依赖 internal/repository 和 pkg/*
+      - 不能直接依赖 internal/handler（循环依赖）
+      - 业务校验逻辑必须在这里（如 student 是否有 active allocation）
+      - 返回结构化错误用 types.NewBadRequestError / NewConflictError 等
+    verify: |
+      grep -q "func.*Create{Entity}" internal/service/{entity}_svc.go && \
+      grep -q "func.*List{Entity}s" internal/service/{entity}_svc.go
+    output:
+      path: internal/service/{entity}_svc.go
+    test_output:
+      path: internal/service/{entity}_svc_test.go
+
+  - id: create-handler
+    description: |
+      在 internal/handler/{entity}_handler.go 创建 HTTP 处理层。
+
+      必须实现：
+      - Create{Entity}    POST   /api/v1/{plural}
+      - Get{Entity}       GET    /api/v1/{plural}/:id
+      - List{Entity}s     GET    /api/v1/{plural}
+      - Update{Entity}    PUT    /api/v1/{plural}/:id
+      - Delete{Entity}    DELETE /api/v1/{plural}/:id
+
+      规则：
+      - Layer 3，通过 service 层间接访问 repository
+      - 绑定请求用 binding:"required"
+      - 使用 Gin 的 ShouldBindJSON / ShouldBindQuery
+      - 错误用 c.JSON + 正确的 HTTP 状态码
+      - 成功用 c.JSON 200/201
+    verify: |
+      grep -q "POST.*{plural}" internal/handler/{entity}_handler.go && \
+      grep -q "GET.*{plural}" internal/handler/{entity}_handler.go
+    output:
+      path: internal/handler/{entity}_handler.go
+
+  - id: register-route
+    description: |
+      在 internal/router/ 中注册新实体的路由。
+
+      规则：
+      - 添加到现有 router 文件（不是新建文件）
+      - 使用 /api/v1/{plural} 前缀
+      - 需要认证中间件的接口加 AuthRequired() 中间件
+      - 路由按 GET/POST/PUT/DELETE 顺序注册
+    verify: |
+      grep -q "{plural}" internal/router/
+    output:
+      path: internal/router/
+
+  - id: write-unit-tests
+    description: |
+      为 service 层写单元测试（必须）。
+
+      规则：
+      - 放在 internal/service/{entity}_svc_test.go
+      - 使用 table-driven tests
+      - Mock repository 层（用 interface mock）
+      - 测试用例覆盖：正常路径、参数校验失败、数据库错误
+      - 覆盖率目标 ≥ 70%
+    verify: |
+      test -f internal/service/{entity}_svc_test.go && \
+      go test ./internal/service/... -run {Entity} -v 2>&1 | grep -q "PASS"
+    coverage_target: 70
+
+  - id: add-migration
+    description: |
+      添加数据库 migration（如果有新表）。
+
+      ⚠️ 重要：本项目不使用独立 migration 文件，所有表定义都在 cmd/migrate/main.go 的 runMigrationsUp() 函数中用 SQL 字面量定义。
+
+      操作规则：
+      - 在 runMigrationsUp() 中添加 CREATE TABLE IF NOT EXISTS 字句
+      - 在 indexes 切片中添加新表索引
+      - 在 runMigrationsDown() 的 tables 切片中添加表名（按依赖逆序）
+      - 在 printMigrationStatus() 的 tables 切片中添加表名
+      - 使用 IF NOT EXISTS 确保幂等性
+    verify: |
+      grep -q "CREATE TABLE IF NOT EXISTS {entity}" cmd/migrate/main.go
+    output:
+      path: cmd/migrate/main.go
+
+  - id: run-layers-check
+    description: |
+      运行层级依赖检查，确保没有反向依赖。
+
+      规则：
+      - Layer 0 (pkg/*) 不能依赖 internal/*
+      - Layer 1 (repository) 不能依赖 service
+      - Layer 2 (service) 不能依赖 handler
+      - Layer 3 (handler) 不能依赖 cmd/*
+    verify: |
+      go run ./scripts/lint-deps 2>&1 | grep -q "pass" || echo "check output for violations"
+    on_error:
+      message: "层级检查失败，查看 lint-deps 输出修复违规"
+
+constraints:
+  - layer_map_strict: true
+    # docs/LAYER_MAP.md 中的规则必须被严格执行，违规代码不合并
+  - test_coverage_min: 70
+    # service 层测试覆盖率必须 ≥ 70%
+  - no_direct_repo_access_from_handler: true
+    # handler 必须通过 service 层访问 repository，不允许直接调用
+  - error_handling: structured
+    # 所有错误必须用 types.New*Error() 家族，不允许直接 error.New
+
+output_schema:
+  files_created:
+    - internal/types/{entity}.go
+    - internal/repository/{entity}_repo.go
+    - internal/repository/{entity}_repo_test.go
+    - internal/service/{entity}_svc.go
+    - internal/service/{entity}_svc_test.go
+    - internal/handler/{entity}_handler.go
+  files_modified:
+    - internal/router/ (路由注册)
+  verification:
+    - go build ./cmd/server
+    - go test ./internal/service/... -run {Entity} -coverprofile=coverage.out
+    - go run ./scripts/lint-deps
+    - go run ./cmd/migrate/main.go up  # 确认 migration 通过

@@ -1,0 +1,9 @@
+{
+  "task_id": "room-repair-crud-20260508-1330-20260508-1330",
+  "task": "\u5b9e\u73b0 Room CRUD + Repair \u7ef4\u4fee\u7cfb\u7edf CRUD",
+  "started_at": "2026-05-08T13:30:14.300046",
+  "phase": 3,
+  "total_phases": 2,
+  "status": "in_progress",
+  "plan_path": "docs/exec-plans/active/2026-05-08-room-repair-crud.md"
+}

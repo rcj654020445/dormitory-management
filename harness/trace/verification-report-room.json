@@ -1,0 +1,21 @@
+{
+  "overall_status": "skip",
+  "skip_reason": "Docker container environment lacks Go toolchain. Go build and functional verification require the host machine (Mac/Linux with Go installed). Code is written but cannot be compiled/verified inside container.",
+  "server": {"started": false},
+  "task_specific_scenarios": [],
+  "summary": {
+    "task_specific_total": 0,
+    "task_specific_passed": 0,
+    "pass_rate": 0
+  },
+  "local_verification_required": {
+    "description": "The following commands must be run on the LOCAL host machine (not in Docker container):",
+    "commands": [
+      "cd /opt/data/dormitory-management && go build ./cmd/server",
+      "cd /opt/data/dormitory-management && go run ./scripts/lint-deps",
+      "cd /opt/data/dormitory-management && go test ./internal/service/... -run Room -coverprofile=coverage.out",
+      "# After starting DB: go run ./cmd/migrate/main.go up",
+      "# Then start server and run HTTP functional tests"
+    ]
+  }
+}

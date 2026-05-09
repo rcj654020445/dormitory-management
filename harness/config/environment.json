@@ -1,0 +1,133 @@
+{
+  "version": "2.0",
+  "project": {
+    "name": "dormitory-management",
+    "type": "hybrid",
+    "language": "go + typescript",
+    "description": "学生宿舍管理系统 - Go Web API + Vue3 Frontend"
+  },
+  "runtime": {
+    "language": "go",
+    "version": "1.23",
+    "package_manager": "go",
+    "build_command": "go build ./cmd/server",
+    "test_command": "go test ./...",
+    "lint_command": "make lint-arch"
+  },
+  "frontend": {
+    "language": "typescript",
+    "framework": "vue3",
+    "package_manager": "npm",
+    "build_command": "cd frontend && npm run build",
+    "dev_command": "cd frontend && npm run dev",
+    "port": 3000
+  },
+  "startup": {
+    "command": "go run ./cmd/server",
+    "args": ["--port", "${PORT:-8080}"],
+    "working_dir": ".",
+    "env": {
+      "PORT": "${PORT:-8080}",
+      "ENV": "${ENV:-development}",
+      "LOG_LEVEL": "${LOG_LEVEL:-debug}",
+      "DATABASE_URL": "${DATABASE_URL}",
+      "REDIS_URL": "${REDIS_URL:-redis://localhost:6379/0}"
+    },
+    "readiness": {
+      "type": "http",
+      "path": "/health",
+      "timeout": 30
+    },
+    "setup": {
+      "migration_command": "go run ./cmd/migrate up",
+      "seed_command": "go run ./cmd/seed"
+    }
+  },
+  "services": [
+    {
+      "name": "postgres",
+      "type": "database",
+      "required": true,
+      "image": "postgres:15",
+      "ports": ["5432:5432"],
+      "env": {
+        "POSTGRES_USER": "${DB_USER:-dormitory}",
+        "POSTGRES_PASSWORD": "${DB_PASSWORD}",
+        "POSTGRES_DB": "${DB_NAME:-dormitory}"
+      },
+      "health_check": "pg_isready -U ${DB_USER:-dormitory}",
+      "connection": {
+        "url_env": "DATABASE_URL",
+        "default_url": "postgres://${DB_USER:-dormitory}:${DB_PASSWORD}@localhost:5432/${DB_NAME:-dormitory}?sslmode=disable"
+      }
+    },
+    {
+      "name": "redis",
+      "type": "cache",
+      "required": false,
+      "image": "redis:7",
+      "ports": ["6379:6379"],
+      "health_check": "redis-cli ping",
+      "connection": {
+        "url_env": "REDIS_URL",
+        "default_url": "redis://localhost:6379"
+      }
+    }
+  ],
+  "env_vars": {
+    "required": {
+      "DATABASE_URL": {
+        "purpose": "PostgreSQL 连接字符串",
+        "sensitive": true
+      },
+      "DB_PASSWORD": {
+        "purpose": "数据库密码",
+        "sensitive": true
+      },
+      "JWT_SECRET": {
+        "purpose": "JWT 签名密钥",
+        "sensitive": true,
+        "test_value_ok": true,
+        "test_value": "dev-secret-do-not-use-in-production"
+      }
+    },
+    "optional": {
+      "PORT": {
+        "purpose": "HTTP 服务端口",
+        "default": "8080",
+        "sensitive": false
+      },
+      "REDIS_URL": {
+        "purpose": "Redis 连接 URL（用于会话缓存）",
+        "default": "redis://localhost:6379/0",
+        "sensitive": false
+      },
+      "CORS_ORIGINS": {
+        "purpose": "允许的 CORS 源（前端地址）",
+        "default": "http://localhost:3000",
+        "sensitive": false
+      }
+    }
+  },
+  "endpoints": {
+    "health": "/health",
+    "base_url": "http://localhost:${PORT:-8080}",
+    "frontend_url": "http://localhost:3000"
+  },
+  "scripts": {
+    "setup": "harness/scripts/setup-env.sh",
+    "start": "harness/scripts/start-be.sh",
+    "start:frontend": "harness/scripts/start-fe.sh",
+    "teardown": "harness/scripts/teardown-env.sh"
+  },
+  "_meta": {
+    "generated_by": "harness-creator",
+    "schema_version": "2.0",
+    "requires_user_input": ["DATABASE_URL", "DB_PASSWORD", "JWT_SECRET"],
+    "todos": [
+      "确认是否需要 Redis（如果只用 Postgres 可以去掉）",
+      "确认 CORS_ORIGINS 是否需要支持多域名",
+      "考虑是否需要文件存储服务（学生照片上传）"
+    ]
+  }
+}

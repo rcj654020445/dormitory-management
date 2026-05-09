@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/example/dormitory-management/internal/request"
@@ -12,13 +13,13 @@ import (
 
 // mockRoomRepository is a test double for RoomRepository.
 type mockRoomRepository struct {
-	createFn   func(ctx context.Context, room *types.Room) error
-	getByIDFn  func(ctx context.Context, id string) (*types.Room, error)
-	listFn     func(ctx context.Context, page, pageSize int, buildingID string, floor int, status string) ([]*types.Room, int, error)
-	updateFn   func(ctx context.Context, room *types.Room) error
-	deleteFn   func(ctx context.Context, id string) error
-	incrementFn func(ctx context.Context, roomID string, delta int) error
-	getByBuildingFn func(ctx context.Context, buildingID string) ([]*types.Room, error)
+	createFn      func(ctx context.Context, room *types.Room) error
+	getByIDFn     func(ctx context.Context, id string) (*types.Room, error)
+	listFn        func(ctx context.Context, page, pageSize int, buildingID string, floor int, status string) ([]*types.Room, int, error)
+	updateFn      func(ctx context.Context, room *types.Room) error
+	deleteFn      func(ctx context.Context, id string) error
+	incrementFn   func(ctx context.Context, roomID string, delta int) error
+	listByBuildingFn func(ctx context.Context, buildingID string) ([]*types.Room, error)
 }
 
 func (m *mockRoomRepository) Create(ctx context.Context, room *types.Room) error {
@@ -63,9 +64,9 @@ func (m *mockRoomRepository) IncrementBedsUsed(ctx context.Context, roomID strin
 	return nil
 }
 
-func (m *mockRoomRepository) GetByBuildingID(ctx context.Context, buildingID string) ([]*types.Room, error) {
-	if m.getByBuildingFn != nil {
-		return m.getByBuildingFn(ctx, buildingID)
+func (m *mockRoomRepository) ListByBuilding(ctx context.Context, buildingID string) ([]*types.Room, error) {
+	if m.listByBuildingFn != nil {
+		return m.listByBuildingFn(ctx, buildingID)
 	}
 	return nil, nil
 }
@@ -121,7 +122,7 @@ func TestRoomService_CreateRoom(t *testing.T) {
 				Number:      "101",
 				Floor:       1,
 				Type:        "double",
-				Capacity:    2,
+				BedsTotal:   2,
 				HasBathroom: false,
 				HasAC:       true,
 			},
@@ -142,7 +143,7 @@ func TestRoomService_CreateRoom(t *testing.T) {
 				Number:     "101",
 				Floor:      1,
 				Type:       "double",
-				Capacity:   2,
+				BedsTotal:  2,
 			},
 			setupMock: func(rr *mockRoomRepository, br *mockBuildingRepository) {
 				br.getByIDFn = func(ctx context.Context, id string) (*types.Building, error) {
@@ -159,7 +160,7 @@ func TestRoomService_CreateRoom(t *testing.T) {
 				Number:     "101",
 				Floor:      10, // building only has 6 floors
 				Type:       "double",
-				Capacity:   2,
+				BedsTotal:  2,
 			},
 			setupMock: func(rr *mockRoomRepository, br *mockBuildingRepository) {
 				br.getByIDFn = func(ctx context.Context, id string) (*types.Building, error) {
@@ -176,7 +177,7 @@ func TestRoomService_CreateRoom(t *testing.T) {
 				Number:     "101",
 				Floor:      1,
 				Type:       "double",
-				Capacity:   4, // double should have 2
+				BedsTotal:  4, // double should have 2
 			},
 			setupMock: func(rr *mockRoomRepository, br *mockBuildingRepository) {
 				br.getByIDFn = func(ctx context.Context, id string) (*types.Building, error) {
@@ -270,8 +271,8 @@ func TestRoomService_GetRoom(t *testing.T) {
 }
 
 func TestRoomService_UpdateRoom(t *testing.T) {
-	capacity := 4
-	invalidCapacity := 1
+	bedsTotal := 4
+	invalidBedsTotal := 1
 	tests := []struct {
 		name      string
 		id        string
@@ -284,7 +285,7 @@ func TestRoomService_UpdateRoom(t *testing.T) {
 			name: "success",
 			id:   "room-1",
 			req: &request.UpdateRoomRequest{
-				Number:   &capacity,
+				BedsTotal: &bedsTotal,
 			},
 			setupMock: func(rr *mockRoomRepository, br *mockBuildingRepository) {
 				rr.getByIDFn = func(ctx context.Context, id string) (*types.Room, error) {
@@ -300,7 +301,7 @@ func TestRoomService_UpdateRoom(t *testing.T) {
 			name: "capacity less than used",
 			id:   "room-1",
 			req: &request.UpdateRoomRequest{
-				Number: &invalidCapacity,
+				BedsTotal: &invalidBedsTotal,
 			},
 			setupMock: func(rr *mockRoomRepository, br *mockBuildingRepository) {
 				rr.getByIDFn = func(ctx context.Context, id string) (*types.Room, error) {
@@ -422,7 +423,7 @@ func TestRoomService_ListRooms(t *testing.T) {
 	}{
 		{
 			name: "success with default pagination",
-			req: &request.ListRoomRequest{},
+			req:  &request.ListRoomRequest{},
 			setupMock: func(rr *mockRoomRepository, br *mockBuildingRepository) {
 				rr.listFn = func(ctx context.Context, page, pageSize int, buildingID string, floor int, status string) ([]*types.Room, int, error) {
 					return []*types.Room{
@@ -437,10 +438,10 @@ func TestRoomService_ListRooms(t *testing.T) {
 			name: "success with filters",
 			req: &request.ListRoomRequest{
 				BuildingID: "building-1",
-				Floor:     2,
-				Status:    "active",
-				Page:      1,
-				PageSize:  10,
+				Floor:      2,
+				Status:     "active",
+				Page:       1,
+				PageSize:   10,
 			},
 			setupMock: func(rr *mockRoomRepository, br *mockBuildingRepository) {
 				rr.listFn = func(ctx context.Context, page, pageSize int, buildingID string, floor int, status string) ([]*types.Room, int, error) {
@@ -478,10 +479,10 @@ func TestRoomService_ListRooms(t *testing.T) {
 
 func TestRoomService_GetRoomsByBuilding(t *testing.T) {
 	tests := []struct {
-		name      string
+		name       string
 		buildingID string
-		setupMock func(*mockRoomRepository, *mockBuildingRepository)
-		wantErr   bool
+		setupMock  func(*mockRoomRepository, *mockBuildingRepository)
+		wantErr    bool
 	}{
 		{
 			name:      "success",
@@ -490,7 +491,7 @@ func TestRoomService_GetRoomsByBuilding(t *testing.T) {
 				br.getByIDFn = func(ctx context.Context, id string) (*types.Building, error) {
 					return &types.Building{ID: id}, nil
 				}
-				rr.getByBuildingFn = func(ctx context.Context, buildingID string) ([]*types.Room, error) {
+				rr.listByBuildingFn = func(ctx context.Context, buildingID string) ([]*types.Room, error) {
 					return []*types.Room{{ID: "r1"}, {ID: "r2"}}, nil
 				}
 			},
@@ -505,6 +506,20 @@ func TestRoomService_GetRoomsByBuilding(t *testing.T) {
 				}
 			},
 			wantErr: true,
+			errType: "NotFoundError",
+		},
+		{
+			name:      "no rooms",
+			buildingID: "building-1",
+			setupMock: func(rr *mockRoomRepository, br *mockBuildingRepository) {
+				br.getByIDFn = func(ctx context.Context, id string) (*types.Building, error) {
+					return &types.Building{ID: id}, nil
+				}
+				rr.listByBuildingFn = func(ctx context.Context, buildingID string) ([]*types.Room, error) {
+					return []*types.Room{}, nil
+				}
+			},
+			wantErr: false,
 		},
 	}
 

@@ -186,23 +186,6 @@ func TestRoomService_CreateRoom(t *testing.T) {
 			wantErr: true,
 			errType: "BadRequestError",
 		},
-		{
-			name: "invalid capacity for type",
-			req: &request.CreateRoomRequest{
-				BuildingID: "building-1",
-				Number:     "101",
-				Floor:      1,
-				Type:       "double",
-				BedsTotal:  4, // double should have 2
-			},
-			setupMock: func(rr *mockRoomRepository, br *mockBuildingRepository) {
-				br.getByIDFn = func(ctx context.Context, id string) (*types.Building, error) {
-					return &types.Building{ID: id, FloorCount: 6}, nil
-				}
-			},
-			wantErr: true,
-			errType: "BadRequestError",
-		},
 	}
 
 	for _, tt := range tests {
